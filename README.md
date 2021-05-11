@@ -14,6 +14,10 @@ This app is designed to quickly map and visualize decimal degree data points and
 
 <br>
 
+## TO DO LIST (Additions)
+- Ability to change color of points
+- Click add points & export coordinates
+
 ## Running the Application Locally
 
 This app can also be run through R:
