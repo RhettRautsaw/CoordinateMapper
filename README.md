@@ -4,7 +4,7 @@
 ## Rhett M. Rautsaw
 
 This repository contains the underlying code for the **Coordinate Mapper** Shiny application hosted at 
-[RhettRautsaw.com/shiny/CoordinateMapper](https://RhettRautsaw.com/shiny/CoordinateMapper/)
+[RhettRautsaw.app/shiny/CoordinateMapper](https://RhettRautsaw.app/shiny/CoordinateMapper/)
 
 This app is designed to quickly map and visualize decimal degree data points and color them by a given category. The app takes a single 4 column tab-delimited copy-paste input. 
 
