@@ -52,8 +52,8 @@ server<-function(input, output, session) {
             addProviderTiles(providers$Esri.WorldStreetMap, group="Open Street Map") %>%
             addWMSTiles('http://ows.mundialis.de/services/service?', layers='TOPO-WMS', group="Topography") %>%
             addProviderTiles(providers$Esri.WorldImagery, group="Satellite") %>%
-            addProviderTiles(providers$Stamen.TonerLines, group="Boundaries") %>%
-            addProviderTiles(providers$Stamen.TonerLabels, group="Labels") %>%
+            addProviderTiles(providers$Stadia.StamenTonerLines, group="Boundaries") %>%
+            addProviderTiles(providers$Stadia.StamenTonerLabels, group="Labels") %>%
             addLayersControl(
                 baseGroups=c("Terrain","Open Street Map","Topography", "Satellite"),
                 overlayGroups=c("Boundaries","Labels"),
