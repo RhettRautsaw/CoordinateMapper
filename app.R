@@ -52,8 +52,28 @@ server<-function(input, output, session) {
             addProviderTiles(providers$Esri.WorldStreetMap, group="Open Street Map") %>%
             addWMSTiles('http://ows.mundialis.de/services/service?', layers='TOPO-WMS', group="Topography") %>%
             addProviderTiles(providers$Esri.WorldImagery, group="Satellite") %>%
-            addProviderTiles(providers$Stadia.StamenTonerLines, group="Boundaries") %>%
-            addProviderTiles(providers$Stadia.StamenTonerLabels, group="Labels") %>%
+            addTiles(
+              urlTemplate = "https://tiles.stadiamaps.com/tiles/{variant}/{z}/{x}/{y}{r}.png?api_key={apikey}",
+                attribution = paste(
+                  '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> ' ,
+                  '&copy; <a href="https://stamen.com/" target="_blank">Stamen Design</a> ' ,
+                  '&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' ,
+                  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'),
+                group="Boundaries",
+                options = tileOptions(variant='stamen_toner_lines', apikey = '743f0610-5457-407d-8120-245f3252c7ff')
+            ) %>%
+            addTiles(
+              urlTemplate = "https://tiles.stadiamaps.com/tiles/{variant}/{z}/{x}/{y}{r}.png?api_key={apikey}",
+                attribution = paste(
+                  '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> ' ,
+                  '&copy; <a href="https://stamen.com/" target="_blank">Stamen Design</a> ' ,
+                  '&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' ,
+                  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'),
+                group="Labels",
+                options = tileOptions(variant='stamen_toner_labels', apikey = '743f0610-5457-407d-8120-245f3252c7ff')
+            ) %>%
+            #addProviderTiles(providers$Stadia.StamenTonerLines, group="Boundaries") %>%
+            #addProviderTiles(providers$Stadia.StamenTonerLabels, group="Labels") %>%
             addLayersControl(
                 baseGroups=c("Terrain","Open Street Map","Topography", "Satellite"),
                 overlayGroups=c("Boundaries","Labels"),
