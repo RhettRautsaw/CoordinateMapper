@@ -31,10 +31,23 @@ For larger datasets, import a `.csv`, `.tsv`, or `.txt` file and then choose whi
 
 The app will try to auto-detect latitude and longitude columns, but users can adjust the dropdowns before mapping.
 
+### Option 3: Add points directly on the map
+
+Use the point creation controls to enter a new sample ID and category, enable add mode, and then click anywhere on the map to place a new point at that location.
+
+### Export data
+
+Use `Export Current Points to CSV` to download the points currently displayed on the map. This includes points added from:
+
+- pasted table data
+- imported files
+- manually added map clicks
+
 ### Features
 
 - Terrain basemap by default, with additional basemap and overlay options
 - Category-colored points with popup details and a legend
+- Click-to-add points with CSV export
 - Collapsible control panel
 - Mobile-friendly layout with a bottom-sheet control panel
 
@@ -75,4 +88,3 @@ runUrl("https://github.com/RhettRautsaw/CoordinateMapper/archive/master.tar.gz",
 
 # TO DO LIST (Additions)
 - Ability to change color of points
-- Click add points & export coordinates

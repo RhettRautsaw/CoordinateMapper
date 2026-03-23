@@ -420,7 +420,7 @@
       </p>
 
       <section class="panel-section">
-        <span class="section-title">Paste Into Table</span>
+        <span class="section-title">Option 1: Paste into table</span>
         <p class="section-help">Click the first data cell and paste a four-column block. Extra rows will be added automatically.</p>
         <div class="table-wrap">
           <table aria-label="Coordinate data table">
@@ -435,15 +435,10 @@
             <tbody id="paste-table-body"></tbody>
           </table>
         </div>
-        <div class="button-row">
-          <button id="map-table-button" class="primary" type="button">Map Table Data</button>
-          <button id="clear-table-button" class="secondary" type="button">Clear Data</button>
-          <button id="sample-button" class="secondary" type="button">Restore Example Data</button>
-        </div>
       </section>
 
       <section class="panel-section">
-        <label for="file-input">Import CSV / TSV</label>
+        <label for="file-input">Option 2: Import CSV</label>
         <p class="section-help">Use this for larger files, then choose which columns represent ID, category, latitude, and longitude.</p>
         <input id="file-input" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" />
         <div id="file-source-chip" class="source-chip" hidden>No file loaded</div>
@@ -467,7 +462,6 @@
             </div>
           </div>
           <div class="button-row">
-            <button id="map-file-button" class="primary" type="button">Map Imported File</button>
             <button id="clear-file-button" class="secondary" type="button">Clear Imported File</button>
           </div>
           <div id="preview-box" class="preview-box"></div>
@@ -480,7 +474,21 @@
           Sample ID, category, latitude, and longitude are all that is needed.<br />
           Headers are optional for pasted data and recommended for imported files.
         </div>
+        <div class="button-row">
+          <button id="map-data-button" class="primary" type="button">Map Data</button>
+          <button id="clear-data-button" class="secondary" type="button">Clear Data</button>
+          <button id="sample-button" class="secondary" type="button">Show Example Data</button>
+        </div>
         <p id="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel-section">
+        <span class="section-title">Add Points On Map</span>
+        <p class="section-help">Turn on add mode and click the map to append a new row to the table. You can edit the ID and category directly in the table afterward.</p>
+        <div class="button-row">
+          <button id="add-point-mode-button" class="secondary" type="button">Enable Add Mode</button>
+          <button id="export-csv-button" class="secondary" type="button">Export Current Points to CSV</button>
+        </div>
       </section>
     </div>
   </aside>
@@ -577,12 +585,14 @@
     const markerLayer = L.layerGroup().addTo(map);
     let legendControl = null;
     let importedDataset = null;
+    let addPointMode = false;
+    let currentPoints = [];
 
     const sidePanel = document.getElementById('side-panel');
     const panelToggle = document.getElementById('panel-toggle');
     const pasteTableBody = document.getElementById('paste-table-body');
-    const mapTableButton = document.getElementById('map-table-button');
-    const clearTableButton = document.getElementById('clear-table-button');
+    const mapDataButton = document.getElementById('map-data-button');
+    const clearDataButton = document.getElementById('clear-data-button');
     const sampleButton = document.getElementById('sample-button');
     const fileInput = document.getElementById('file-input');
     const mappingPanel = document.getElementById('mapping-panel');
@@ -591,10 +601,12 @@
     const categoryColumn = document.getElementById('category-column');
     const latColumn = document.getElementById('lat-column');
     const lonColumn = document.getElementById('lon-column');
-    const mapFileButton = document.getElementById('map-file-button');
     const clearFileButton = document.getElementById('clear-file-button');
     const previewBox = document.getElementById('preview-box');
     const status = document.getElementById('status');
+    const addPointModeButton = document.getElementById('add-point-mode-button');
+    const exportCsvButton = document.getElementById('export-csv-button');
+    let autoMapTimer = null;
 
     function setStatus(message, isError = false) {
       status.textContent = message;
@@ -692,7 +704,7 @@
 
     function writeRowsToTable(rows) {
       pasteTableBody.innerHTML = '';
-      ensureTableRows(Math.max(rows.length + 6, 10));
+      ensureTableRows(Math.max(rows.length + 2, 2));
       const tableRows = [...pasteTableBody.querySelectorAll('tr')];
       rows.forEach((rowValues, rowIndex) => {
         const cells = tableRows[rowIndex].querySelectorAll('td');
@@ -784,7 +796,39 @@
       legendControl.addTo(map);
     }
 
+    function csvEscape(value) {
+      const stringValue = String(value ?? '');
+      if (/[",\n]/.test(stringValue)) {
+        return `"${stringValue.replace(/"/g, '""')}"`;
+      }
+      return stringValue;
+    }
+
+    function downloadCsv(points) {
+      if (!points.length) {
+        throw new Error('There are no mapped points to export.');
+      }
+
+      const csv = [
+        ['Sample', 'Category', 'Latitude', 'Longitude'],
+        ...points.map((point) => [point.sample, point.category, point.latitude, point.longitude])
+      ]
+        .map((row) => row.map(csvEscape).join(','))
+        .join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'coordinate_mapper_points.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
     function mapPoints(points) {
+      currentPoints = points.map((point) => ({ ...point }));
       markerLayer.clearLayers();
       const colorMap = categoryColorMap(points);
       const bounds = [];
@@ -949,7 +993,7 @@
       fileSourceChip.hidden = false;
       fileSourceChip.textContent = `${fileName} loaded: ${dataRows.length.toLocaleString()} row${dataRows.length === 1 ? '' : 's'}`;
       renderFilePreview(importedDataset);
-      setStatus(`Imported ${fileName}. Confirm the column mapping, then click "Map Imported File".`);
+      setStatus(`Imported ${fileName}. Confirm the column mapping, then click "Map Data".`);
     }
 
     function parseImportedDataset() {
@@ -998,6 +1042,67 @@
       clearImportedDataset();
       markerLayer.clearLayers();
       clearLegend();
+      currentPoints = [];
+      setAddPointMode(false);
+    }
+
+    function setAddPointMode(enabled) {
+      addPointMode = enabled;
+      addPointModeButton.textContent = enabled ? 'Disable Add Mode' : 'Enable Add Mode';
+      addPointModeButton.className = enabled ? 'primary' : 'secondary';
+      map.getContainer().style.cursor = enabled ? 'crosshair' : '';
+    }
+
+    function appendPointToTable(point) {
+      const existingRows = readTableRows();
+      existingRows.push([
+        point.sample,
+        point.category,
+        String(point.latitude),
+        String(point.longitude)
+      ]);
+      writeRowsToTable(existingRows);
+    }
+
+    function addPointFromMap(latlng) {
+      const point = {
+        sample: `Point ${readTableRows().length + 1}`,
+        category: 'Uncategorized',
+        latitude: Number(latlng.lat.toFixed(6)),
+        longitude: Number(latlng.lng.toFixed(6))
+      };
+      appendPointToTable(point);
+      mapPoints(parsePastedTableRows());
+      setStatus(`Added a new point at ${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}. Edit the ID and category directly in the table if needed.`);
+    }
+
+    function mapAllAvailableData() {
+      try {
+        const tableRows = readTableRows();
+        if (tableRows.length) {
+          mapPoints(parsePastedTableRows());
+          return;
+        }
+
+        if (importedDataset) {
+          mapPoints(parseImportedDataset());
+          return;
+        }
+
+        throw new Error('Add table data or import a file first.');
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    function scheduleAutoMap() {
+      if (autoMapTimer) {
+        window.clearTimeout(autoMapTimer);
+      }
+      autoMapTimer = window.setTimeout(() => {
+        autoMapTimer = null;
+        mapAllAvailableData();
+      }, 250);
     }
 
     pasteTableBody.addEventListener('paste', (event) => {
@@ -1037,11 +1142,17 @@
           }
         }
       });
+
+      scheduleAutoMap();
     });
 
-    mapTableButton.addEventListener('click', applyPastedTable);
+    pasteTableBody.addEventListener('input', () => {
+      scheduleAutoMap();
+    });
 
-    clearTableButton.addEventListener('click', () => {
+    mapDataButton.addEventListener('click', mapAllAvailableData);
+
+    clearDataButton.addEventListener('click', () => {
       clearAllData();
       setStatus('All data cleared.');
     });
@@ -1060,18 +1171,17 @@
       try {
         const text = await file.text();
         loadImportedDataset(file.name, text);
+        scheduleAutoMap();
       } catch (error) {
         clearImportedDataset();
         setStatus(error.message || `Could not read ${file.name}.`, true);
       }
     });
 
-    mapFileButton.addEventListener('click', () => {
-      try {
-        mapPoints(parseImportedDataset());
-      } catch (error) {
-        setStatus(error.message, true);
-      }
+    [idColumn, categoryColumn, latColumn, lonColumn].forEach((selectElement) => {
+      selectElement.addEventListener('change', () => {
+        scheduleAutoMap();
+      });
     });
 
     clearFileButton.addEventListener('click', () => {
@@ -1079,9 +1189,29 @@
       setStatus('Imported file cleared.');
     });
 
+    addPointModeButton.addEventListener('click', () => {
+      setAddPointMode(!addPointMode);
+      setStatus(addPointMode ? 'Add mode enabled. Click the map to place a point.' : 'Add mode disabled.');
+    });
+
+    exportCsvButton.addEventListener('click', () => {
+      try {
+        downloadCsv(currentPoints);
+        setStatus(`Exported ${currentPoints.length} point${currentPoints.length === 1 ? '' : 's'} to CSV.`);
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    });
+
+    map.on('click', (event) => {
+      if (!addPointMode) {
+        return;
+      }
+      addPointFromMap(event.latlng);
+    });
+
     initializeResponsivePanelState();
-    writeRowsToTable(sampleRows);
-    applyPastedTable();
+    clearTable();
   </script>
 </body>
 </html>
