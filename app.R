@@ -9,10 +9,11 @@
 
 library(shiny)
 library(leaflet)
-library(leaflet.extras)
 library(leaflet.extras2)
 library(htmltools)
 library(RColorBrewer)
+library(sf)
+library(terra)
 
 #brPal <- colorRampPalette(c("#543005","#8C510A","#BF812D","#DFC27D","#F6E8C3","#F5F5F5","#C7EAE5","#80CDC1","#35978F","#01665E","#003C30"))
 brPal <- colorRampPalette(brewer.pal(8,"Dark2"))
@@ -52,28 +53,8 @@ server<-function(input, output, session) {
             addProviderTiles(providers$Esri.WorldStreetMap, group="Open Street Map") %>%
             addWMSTiles('http://ows.mundialis.de/services/service?', layers='TOPO-WMS', group="Topography") %>%
             addProviderTiles(providers$Esri.WorldImagery, group="Satellite") %>%
-            addTiles(
-              urlTemplate = "https://tiles.stadiamaps.com/tiles/{variant}/{z}/{x}/{y}{r}.png?api_key={apikey}",
-                attribution = paste(
-                  '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> ' ,
-                  '&copy; <a href="https://stamen.com/" target="_blank">Stamen Design</a> ' ,
-                  '&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' ,
-                  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'),
-                group="Boundaries",
-                options = tileOptions(variant='stamen_toner_lines', apikey = '743f0610-5457-407d-8120-245f3252c7ff')
-            ) %>%
-            addTiles(
-              urlTemplate = "https://tiles.stadiamaps.com/tiles/{variant}/{z}/{x}/{y}{r}.png?api_key={apikey}",
-                attribution = paste(
-                  '&copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a> ' ,
-                  '&copy; <a href="https://stamen.com/" target="_blank">Stamen Design</a> ' ,
-                  '&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> ' ,
-                  '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'),
-                group="Labels",
-                options = tileOptions(variant='stamen_toner_labels', apikey = '743f0610-5457-407d-8120-245f3252c7ff')
-            ) %>%
-            #addProviderTiles(providers$Stadia.StamenTonerLines, group="Boundaries") %>%
-            #addProviderTiles(providers$Stadia.StamenTonerLabels, group="Labels") %>%
+            addProviderTiles(providers$Stadia.StamenTonerLines, group="Boundaries") %>%
+            addProviderTiles(providers$Stadia.StamenTonerLabels, group="Labels") %>%
             addLayersControl(
                 baseGroups=c("Terrain","Open Street Map","Topography", "Satellite"),
                 overlayGroups=c("Boundaries","Labels"),
@@ -86,25 +67,29 @@ server<-function(input, output, session) {
     
     observeEvent(input$update, {
         pointsData<-read.table(text=input$data, header=FALSE, sep="\t", col.names = c("Sample","Category","Latitude","Longitude"))
+        pointsData$Latitude <- as.numeric(pointsData$Latitude)
+        pointsData$Longitude <- as.numeric(pointsData$Longitude)
+        pointsData <- pointsData[stats::complete.cases(pointsData[, c("Latitude", "Longitude")]), ]
+        pointsSf <- st_as_sf(pointsData, coords = c("Longitude", "Latitude"), crs = 4326, remove = FALSE)
+        terra::vect(pointsSf)
         
-        sp_factpal<-colorFactor(pal,levels=sort(unique(pointsData$Category)), ordered=T, reverse=T)
+        sp_factpal<-colorFactor(pal,levels=sort(unique(pointsSf$Category)), ordered=T, reverse=T)
         
         leafletProxy("map")%>%
             clearMarkers() %>% clearGroup("points") %>%
-            addCircleMarkers(data=pointsData,
-                             lng=~as.numeric(Longitude),
-                             lat=~as.numeric(Latitude),
+            clearControls() %>%
+            addCircleMarkers(data=pointsSf,
                              radius = 8,
                              color = ~sp_factpal(Category),
                              stroke = T, fillOpacity = 0.8,
                              #clusterOptions = markerClusterOptions(),
                              label = ~htmlEscape(Sample),
                              group = "points") %>%
-            addLegend(position = "topleft", pal=sp_factpal, values = sort(unique(pointsData$Category)), layerId = "points") %>%
-            fitBounds(min(pointsData$Longitude, na.rm = T)-1,
-                      min(pointsData$Latitude, na.rm =T)-1,
-                      max(pointsData$Longitude, na.rm =T)+5,
-                      max(pointsData$Latitude, na.rm =T)+1)
+            addLegend(position = "topleft", pal=sp_factpal, values = sort(unique(pointsSf$Category)), layerId = "points") %>%
+            fitBounds(min(pointsSf$Longitude, na.rm = T)-1,
+                      min(pointsSf$Latitude, na.rm =T)-1,
+                      max(pointsSf$Longitude, na.rm =T)+5,
+                      max(pointsSf$Latitude, na.rm =T)+1)
     })
 }
 

@@ -1,0 +1,1087 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Coordinate Mapper</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <style>
+    :root {
+      --panel-bg: rgba(255, 255, 255, 0.96);
+      --panel-border: #d9e1e8;
+      --text-main: #15283c;
+      --text-muted: #56687a;
+      --accent: #17624d;
+      --accent-strong: #0f4a39;
+      --button-alt: #f3f6f8;
+      --shadow: 0 10px 24px rgba(16, 32, 51, 0.18);
+      --table-bg: #fbfcfd;
+      --table-line: #d7e0e7;
+      --focus: #2c8b74;
+    }
+
+    html,
+    body,
+    #map {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--text-main);
+      background:
+        radial-gradient(circle at top left, rgba(65, 140, 110, 0.14), transparent 32%),
+        linear-gradient(180deg, #edf4ef 0%, #dfe9ec 100%);
+    }
+
+    #map {
+      position: fixed;
+      inset: 0;
+    }
+
+    #side-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1000;
+      width: 50vw;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 12px 12px 14px;
+      background: var(--panel-bg);
+      box-shadow: var(--shadow);
+      border-left: 1px solid var(--panel-border);
+      backdrop-filter: blur(6px);
+      transition: width 0.2s ease, padding 0.2s ease, border-color 0.2s ease;
+    }
+
+    #side-panel.collapsed {
+      width: 52px;
+      padding: 8px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-bottom: 6px;
+      flex: 0 0 auto;
+    }
+
+    .panel-content {
+      display: flex;
+      flex: 1 1 auto;
+      min-height: 0;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 2px;
+    }
+
+    #side-panel.collapsed .panel-content {
+      display: none;
+    }
+
+    #panel-toggle {
+      border: 1px solid #c7d2dc;
+      background: #fff;
+      border-radius: 6px;
+      width: 34px;
+      height: 28px;
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      color: var(--text-main);
+    }
+
+    #panel-logo {
+      display: block;
+      width: 180px;
+      max-width: 100%;
+      margin: 4px auto 10px;
+    }
+
+    .panel-intro {
+      margin: 0 0 14px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .panel-section + .panel-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--panel-border);
+    }
+
+    label,
+    .section-title {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .section-help {
+      margin: 0 0 8px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--table-line);
+      border-radius: 14px;
+      background: var(--table-bg);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--table-line);
+      border-right: 1px solid var(--table-line);
+      min-width: 104px;
+      padding: 0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 10px 12px;
+      background: #eef4f7;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    td {
+      background: #fff;
+    }
+
+    td[contenteditable="true"] {
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.35;
+      outline: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    td[contenteditable="true"]:focus {
+      box-shadow: inset 0 0 0 2px var(--focus);
+      background: #f7fbf9;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      background: var(--accent-strong);
+    }
+
+    button.secondary {
+      background: var(--button-alt);
+      color: var(--text-main);
+      border: 1px solid #d0dbe4;
+    }
+
+    input[type="file"],
+    select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border: 1px solid #c5d0da;
+      border-radius: 12px;
+      background: #fff;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+
+    .mapping-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .mapping-grid label {
+      margin-bottom: 0;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .mapping-grid .mapping-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .preview-box {
+      margin-top: 10px;
+      max-height: 180px;
+      overflow: auto;
+      border: 1px solid var(--table-line);
+      border-radius: 12px;
+      background: #fbfcfd;
+    }
+
+    .preview-box table {
+      font-size: 12px;
+    }
+
+    .preview-box th {
+      padding: 8px 10px;
+      background: #eef4f7;
+    }
+
+    .preview-box td {
+      padding: 8px 10px;
+      background: #fff;
+    }
+
+    #status {
+      min-height: 18px;
+      margin: 10px 0 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .source-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eef5f1;
+      font-size: 12px;
+      color: var(--accent-strong);
+      font-weight: 600;
+    }
+
+    .legend-card {
+      background: rgba(255, 255, 255, 0.94);
+      padding: 10px 12px;
+      border-radius: 12px;
+      box-shadow: 0 3px 12px rgba(16, 32, 51, 0.15);
+      border: 1px solid rgba(199, 210, 222, 0.95);
+    }
+
+    .legend-title {
+      margin: 0 0 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 5px 0;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+
+    .legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid rgba(0, 0, 0, 0.25);
+      flex: 0 0 12px;
+    }
+
+    .table-hint {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #f5f8fa;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .leaflet-control-layers {
+      font-family: inherit;
+      font-size: 13px;
+    }
+
+    @media (max-width: 720px) {
+      #side-panel {
+        top: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: auto;
+        height: min(68vh, 620px);
+        padding: 10px 10px calc(12px + env(safe-area-inset-bottom, 0px));
+        border-left: 0;
+        border-top: 1px solid var(--panel-border);
+        border-radius: 18px 18px 0 0;
+      }
+
+      #side-panel.collapsed {
+        width: auto;
+        height: 52px;
+        padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+        border-radius: 18px 18px 0 0;
+      }
+
+      .panel-header {
+        justify-content: center;
+        margin-bottom: 4px;
+      }
+
+      #panel-toggle {
+        width: 72px;
+        border-radius: 999px;
+      }
+
+      .panel-content {
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      .mapping-grid {
+        grid-template-columns: 1fr;
+      }
+
+      th,
+      td {
+        min-width: 108px;
+      }
+
+      #panel-logo {
+        width: 54%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="map" aria-label="Coordinate map"></div>
+  <aside id="side-panel" aria-label="Coordinate mapper controls">
+    <div class="panel-header">
+      <button id="panel-toggle" type="button" aria-expanded="true" aria-label="Collapse panel">❯</button>
+    </div>
+    <div class="panel-content">
+      <img id="panel-logo" src="www/CoordinateMapper.png" alt="Coordinate Mapper logo" />
+      <p class="panel-intro">
+        Paste directly from Excel or Google Sheets into the table, or import a larger CSV/TSV and map the columns.
+      </p>
+
+      <section class="panel-section">
+        <span class="section-title">Paste Into Table</span>
+        <p class="section-help">Click the first data cell and paste a four-column block. Extra rows will be added automatically.</p>
+        <div class="table-wrap">
+          <table aria-label="Coordinate data table">
+            <thead>
+              <tr>
+                <th>Sample</th>
+                <th>Category</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+              </tr>
+            </thead>
+            <tbody id="paste-table-body"></tbody>
+          </table>
+        </div>
+        <div class="button-row">
+          <button id="map-table-button" class="primary" type="button">Map Table Data</button>
+          <button id="clear-table-button" class="secondary" type="button">Clear Data</button>
+          <button id="sample-button" class="secondary" type="button">Restore Example Data</button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <label for="file-input">Import CSV / TSV</label>
+        <p class="section-help">Use this for larger files, then choose which columns represent ID, category, latitude, and longitude.</p>
+        <input id="file-input" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain" />
+        <div id="file-source-chip" class="source-chip" hidden>No file loaded</div>
+        <div id="mapping-panel" hidden>
+          <div class="mapping-grid">
+            <div class="mapping-field">
+              <label for="id-column">ID column</label>
+              <select id="id-column"></select>
+            </div>
+            <div class="mapping-field">
+              <label for="category-column">Category column</label>
+              <select id="category-column"></select>
+            </div>
+            <div class="mapping-field">
+              <label for="lat-column">Latitude column</label>
+              <select id="lat-column"></select>
+            </div>
+            <div class="mapping-field">
+              <label for="lon-column">Longitude column</label>
+              <select id="lon-column"></select>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="map-file-button" class="primary" type="button">Map Imported File</button>
+            <button id="clear-file-button" class="secondary" type="button">Clear Imported File</button>
+          </div>
+          <div id="preview-box" class="preview-box"></div>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <span class="section-title">Expected fields</span>
+        <div class="table-hint">
+          Sample ID, category, latitude, and longitude are all that is needed.<br />
+          Headers are optional for pasted data and recommended for imported files.
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+  </aside>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    const sampleRows = [
+      ['KW1547', 'Agkistrodon_conanti', '28.2663', '-82.5496'],
+      ['Ap07', 'Agkistrodon_piscivorus_leucostoma', '31.5337', '-92.5046']
+    ];
+
+    const palette = [
+      '#1b9e77', '#d95f02', '#7570b3', '#e7298a', '#66a61e', '#e6ab02',
+      '#a6761d', '#666666', '#66c2a5', '#fc8d62', '#8da0cb', '#e78ac3',
+      '#a6d854', '#ffd92f', '#e5c494', '#b3b3b3'
+    ];
+
+    const map = L.map('map', {
+      center: [33, -90],
+      zoom: 4,
+      worldCopyJump: true
+    });
+
+    const topoWms = L.tileLayer.wms('https://ows.mundialis.de/services/service?', {
+      layers: 'TOPO-WMS',
+      format: 'image/png',
+      transparent: false,
+      attribution: '&copy; mundialis'
+    });
+
+    const openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      crossOrigin: true,
+      attribution: '&copy; OpenStreetMap contributors'
+    });
+
+    const terrainMap = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+      {
+        crossOrigin: true,
+        attribution: 'Tiles &copy; Esri'
+      }
+    );
+
+    const satelliteMap = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        crossOrigin: true,
+        attribution: 'Tiles &copy; Esri'
+      }
+    );
+
+    const boundariesOverlay = L.tileLayer(
+      'https://tiles.stadiamaps.com/tiles/stamen_toner_lines/{z}/{x}/{y}.png',
+      {
+        crossOrigin: true,
+        attribution: '&copy; Stadia Maps &copy; Stamen Design'
+      }
+    );
+
+    const labelsOverlay = L.tileLayer(
+      'https://tiles.stadiamaps.com/tiles/stamen_toner_labels/{z}/{x}/{y}.png',
+      {
+        crossOrigin: true,
+        attribution: '&copy; Stadia Maps &copy; Stamen Design'
+      }
+    );
+
+    terrainMap.addTo(map);
+    boundariesOverlay.addTo(map);
+
+    L.control.layers(
+      {
+        Terrain: terrainMap,
+        'Open Street Map': openStreetMap,
+        Topography: topoWms,
+        Satellite: satelliteMap
+      },
+      {
+        Boundaries: boundariesOverlay,
+        Labels: labelsOverlay
+      },
+      {
+        position: 'bottomleft',
+        collapsed: false
+      }
+    ).addTo(map);
+
+    L.control.scale({ position: 'topleft' }).addTo(map);
+
+    const markerLayer = L.layerGroup().addTo(map);
+    let legendControl = null;
+    let importedDataset = null;
+
+    const sidePanel = document.getElementById('side-panel');
+    const panelToggle = document.getElementById('panel-toggle');
+    const pasteTableBody = document.getElementById('paste-table-body');
+    const mapTableButton = document.getElementById('map-table-button');
+    const clearTableButton = document.getElementById('clear-table-button');
+    const sampleButton = document.getElementById('sample-button');
+    const fileInput = document.getElementById('file-input');
+    const mappingPanel = document.getElementById('mapping-panel');
+    const fileSourceChip = document.getElementById('file-source-chip');
+    const idColumn = document.getElementById('id-column');
+    const categoryColumn = document.getElementById('category-column');
+    const latColumn = document.getElementById('lat-column');
+    const lonColumn = document.getElementById('lon-column');
+    const mapFileButton = document.getElementById('map-file-button');
+    const clearFileButton = document.getElementById('clear-file-button');
+    const previewBox = document.getElementById('preview-box');
+    const status = document.getElementById('status');
+
+    function setStatus(message, isError = false) {
+      status.textContent = message;
+      status.style.color = isError ? '#b42318' : '#56687a';
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function isMobileLayout() {
+      return window.matchMedia('(max-width: 720px)').matches;
+    }
+
+    function updatePanelToggleAppearance(isCollapsed) {
+      panelToggle.textContent = isMobileLayout()
+        ? (isCollapsed ? '▴' : '▾')
+        : (isCollapsed ? '❮' : '❯');
+      panelToggle.setAttribute('aria-expanded', String(!isCollapsed));
+      panelToggle.setAttribute('aria-label', isCollapsed ? 'Expand panel' : 'Collapse panel');
+    }
+
+    panelToggle.addEventListener('click', () => {
+      const collapsed = sidePanel.classList.toggle('collapsed');
+      updatePanelToggleAppearance(collapsed);
+    });
+
+    window.addEventListener('resize', () => {
+      updatePanelToggleAppearance(sidePanel.classList.contains('collapsed'));
+    });
+
+    function initializeResponsivePanelState() {
+      if (isMobileLayout()) {
+        sidePanel.classList.add('collapsed');
+      }
+      updatePanelToggleAppearance(sidePanel.classList.contains('collapsed'));
+    }
+
+    function detectDelimiter(text) {
+      const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0).slice(0, 8);
+      const tabScore = lines.reduce((count, line) => count + ((line.match(/\t/g) || []).length), 0);
+      const commaScore = lines.reduce((count, line) => count + ((line.match(/,/g) || []).length), 0);
+      return tabScore >= commaScore ? '\t' : ',';
+    }
+
+    function splitDelimitedLine(line, delimiter) {
+      const values = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i += 1) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            current += '"';
+            i += 1;
+          } else {
+            inQuotes = !inQuotes;
+          }
+          continue;
+        }
+
+        if (char === delimiter && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+          continue;
+        }
+
+        current += char;
+      }
+
+      values.push(current.trim());
+      return values.map((value) => value.replace(/^"(.*)"$/s, '$1').trim());
+    }
+
+    function ensureTableRows(targetCount) {
+      while (pasteTableBody.children.length < targetCount) {
+        const row = document.createElement('tr');
+        for (let i = 0; i < 4; i += 1) {
+          const cell = document.createElement('td');
+          cell.contentEditable = 'true';
+          cell.spellcheck = false;
+          row.appendChild(cell);
+        }
+        pasteTableBody.appendChild(row);
+      }
+    }
+
+    function writeRowsToTable(rows) {
+      pasteTableBody.innerHTML = '';
+      ensureTableRows(Math.max(rows.length + 6, 10));
+      const tableRows = [...pasteTableBody.querySelectorAll('tr')];
+      rows.forEach((rowValues, rowIndex) => {
+        const cells = tableRows[rowIndex].querySelectorAll('td');
+        for (let i = 0; i < 4; i += 1) {
+          cells[i].textContent = rowValues[i] || '';
+        }
+      });
+    }
+
+    function clearTable() {
+      writeRowsToTable([]);
+    }
+
+    function readTableRows() {
+      const rows = [];
+      const tableRows = pasteTableBody.querySelectorAll('tr');
+      tableRows.forEach((row) => {
+        const values = [...row.querySelectorAll('td')].map((cell) => cell.textContent.trim());
+        if (values.some((value) => value !== '')) {
+          rows.push(values);
+        }
+      });
+      return rows;
+    }
+
+    function parsePastedTableRows() {
+      const rawRows = readTableRows();
+      if (!rawRows.length) {
+        throw new Error('Add data to the table first.');
+      }
+
+      const points = [];
+      rawRows.forEach((row, index) => {
+        if (row.length < 4) {
+          return;
+        }
+
+        const latitude = Number.parseFloat(row[2]);
+        const longitude = Number.parseFloat(row[3]);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          if (index === 0 && ['latitude', 'lat'].includes(row[2].toLowerCase()) && ['longitude', 'lon', 'lng'].includes(row[3].toLowerCase())) {
+            return;
+          }
+          return;
+        }
+
+        points.push({
+          sample: row[0] || `Sample ${points.length + 1}`,
+          category: row[1] || 'Uncategorized',
+          latitude,
+          longitude
+        });
+      });
+
+      if (!points.length) {
+        throw new Error('No valid coordinate rows were found in the table.');
+      }
+
+      return points;
+    }
+
+    function categoryColorMap(points) {
+      const categories = [...new Set(points.map((point) => point.category))].sort((a, b) => a.localeCompare(b));
+      const colorMap = new Map();
+      categories.forEach((category, index) => {
+        colorMap.set(category, palette[index % palette.length]);
+      });
+      return colorMap;
+    }
+
+    function clearLegend() {
+      if (legendControl) {
+        map.removeControl(legendControl);
+        legendControl = null;
+      }
+    }
+
+    function renderLegend(colorMap) {
+      clearLegend();
+      legendControl = L.control({ position: 'topleft' });
+      legendControl.onAdd = function onAdd() {
+        const div = L.DomUtil.create('div', 'legend-card');
+        const items = [...colorMap.entries()]
+          .map(([category, color]) => `<div class="legend-item"><span class="legend-swatch" style="background:${color};"></span><span>${escapeHtml(category)}</span></div>`)
+          .join('');
+        div.innerHTML = `<p class="legend-title">Categories</p>${items}`;
+        return div;
+      };
+      legendControl.addTo(map);
+    }
+
+    function mapPoints(points) {
+      markerLayer.clearLayers();
+      const colorMap = categoryColorMap(points);
+      const bounds = [];
+
+      points.forEach((point) => {
+        const color = colorMap.get(point.category);
+        const marker = L.circleMarker([point.latitude, point.longitude], {
+          radius: 8,
+          color,
+          weight: 1.25,
+          fillColor: color,
+          fillOpacity: 0.8
+        });
+
+        marker.bindTooltip(escapeHtml(point.sample), { direction: 'top' });
+        marker.bindPopup(
+          `<strong>${escapeHtml(point.sample)}</strong><br />` +
+          `Category: ${escapeHtml(point.category)}<br />` +
+          `Latitude: ${point.latitude}<br />` +
+          `Longitude: ${point.longitude}`
+        );
+        marker.addTo(markerLayer);
+        bounds.push([point.latitude, point.longitude]);
+      });
+
+      renderLegend(colorMap);
+
+      if (bounds.length === 1) {
+        map.setView(bounds[0], 7);
+      } else {
+        map.fitBounds(bounds, { padding: [30, 30] });
+      }
+
+      setStatus(`Mapped ${points.length} point${points.length === 1 ? '' : 's'} across ${colorMap.size} categor${colorMap.size === 1 ? 'y' : 'ies'}.`);
+    }
+
+    function applyPastedTable() {
+      try {
+        mapPoints(parsePastedTableRows());
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    function guessColumnIndex(headers, patterns, fallbackIndex) {
+      const normalizedHeaders = headers.map((header) => header.toLowerCase());
+      const guessed = normalizedHeaders.findIndex((header) => patterns.some((pattern) => header.includes(pattern)));
+      return guessed >= 0 ? guessed : fallbackIndex;
+    }
+
+    function scoreCoordinateColumn(rows, columnIndex, minValue, maxValue) {
+      let numericCount = 0;
+      let inRangeCount = 0;
+      const sampleSize = Math.min(rows.length, 200);
+
+      for (let i = 0; i < sampleSize; i += 1) {
+        const value = rows[i] && rows[i][columnIndex] !== undefined ? rows[i][columnIndex] : '';
+        const numericValue = Number.parseFloat(String(value).trim());
+        if (!Number.isFinite(numericValue)) {
+          continue;
+        }
+        numericCount += 1;
+        if (numericValue >= minValue && numericValue <= maxValue) {
+          inRangeCount += 1;
+        }
+      }
+
+      if (numericCount === 0) {
+        return -1;
+      }
+
+      return inRangeCount + (numericCount / sampleSize);
+    }
+
+    function guessCoordinateColumns(headers, rows) {
+      const headerLat = guessColumnIndex(headers, ['latitude', 'lat'], -1);
+      const headerLon = guessColumnIndex(headers, ['longitude', 'lon', 'lng', 'long'], -1);
+
+      if (headerLat >= 0 && headerLon >= 0 && headerLat !== headerLon) {
+        return { lat: headerLat, lon: headerLon };
+      }
+
+      const scoredColumns = headers.map((_, index) => ({
+        index,
+        latScore: scoreCoordinateColumn(rows, index, -90, 90),
+        lonScore: scoreCoordinateColumn(rows, index, -180, 180)
+      }));
+
+      let latIndex = headerLat;
+      let lonIndex = headerLon;
+
+      if (latIndex < 0) {
+        const bestLat = [...scoredColumns].sort((a, b) => b.latScore - a.latScore)[0];
+        latIndex = bestLat && bestLat.latScore > 0 ? bestLat.index : Math.min(2, headers.length - 1);
+      }
+
+      if (lonIndex < 0) {
+        const lonCandidates = [...scoredColumns]
+          .filter((column) => column.index !== latIndex)
+          .sort((a, b) => b.lonScore - a.lonScore);
+        const bestLon = lonCandidates[0];
+        lonIndex = bestLon && bestLon.lonScore > 0 ? bestLon.index : Math.min(3, headers.length - 1);
+      }
+
+      if (latIndex === lonIndex) {
+        const alternatives = [...scoredColumns]
+          .filter((column) => column.index !== latIndex)
+          .sort((a, b) => b.lonScore - a.lonScore);
+        if (alternatives[0]) {
+          lonIndex = alternatives[0].index;
+        }
+      }
+
+      return { lat: latIndex, lon: lonIndex };
+    }
+
+    function setSelectOptions(selectElement, headers, selectedIndex) {
+      selectElement.innerHTML = headers
+        .map((header, index) => `<option value="${index}">${escapeHtml(header)}</option>`)
+        .join('');
+      selectElement.value = String(Math.max(0, Math.min(selectedIndex, headers.length - 1)));
+    }
+
+    function renderFilePreview(dataset) {
+      const headerHtml = dataset.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('');
+      const bodyHtml = dataset.rows.slice(0, 5)
+        .map((row) => `<tr>${row.map((value) => `<td>${escapeHtml(value)}</td>`).join('')}</tr>`)
+        .join('');
+      previewBox.innerHTML =
+        `<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+    }
+
+    function loadImportedDataset(fileName, text) {
+      const delimiter = detectDelimiter(text);
+      const rows = text.split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => splitDelimitedLine(line, delimiter))
+        .filter((row) => row.some((value) => value !== ''));
+
+      if (rows.length < 2) {
+        throw new Error('Imported files need at least a header row and one data row.');
+      }
+
+      const headerRow = rows[0];
+      const dataRows = rows.slice(1);
+      const headers = headerRow.map((value, index) => value || `Column ${index + 1}`);
+
+      importedDataset = {
+        fileName,
+        headers,
+        rows: dataRows
+      };
+
+      const guessedCoordinates = guessCoordinateColumns(headers, dataRows);
+      setSelectOptions(idColumn, headers, guessColumnIndex(headers, ['sample', 'id', 'specimen'], 0));
+      setSelectOptions(categoryColumn, headers, guessColumnIndex(headers, ['category', 'group', 'species', 'class'], Math.min(1, headers.length - 1)));
+      setSelectOptions(latColumn, headers, guessedCoordinates.lat);
+      setSelectOptions(lonColumn, headers, guessedCoordinates.lon);
+
+      mappingPanel.hidden = false;
+      fileSourceChip.hidden = false;
+      fileSourceChip.textContent = `${fileName} loaded: ${dataRows.length.toLocaleString()} row${dataRows.length === 1 ? '' : 's'}`;
+      renderFilePreview(importedDataset);
+      setStatus(`Imported ${fileName}. Confirm the column mapping, then click "Map Imported File".`);
+    }
+
+    function parseImportedDataset() {
+      if (!importedDataset) {
+        throw new Error('Import a file first.');
+      }
+
+      const idIndex = Number(idColumn.value);
+      const categoryIndex = Number(categoryColumn.value);
+      const latIndex = Number(latColumn.value);
+      const lonIndex = Number(lonColumn.value);
+
+      const points = [];
+      importedDataset.rows.forEach((row) => {
+        const latitude = Number.parseFloat(row[latIndex]);
+        const longitude = Number.parseFloat(row[lonIndex]);
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          return;
+        }
+
+        points.push({
+          sample: (row[idIndex] || '').trim() || `Sample ${points.length + 1}`,
+          category: (row[categoryIndex] || '').trim() || 'Uncategorized',
+          latitude,
+          longitude
+        });
+      });
+
+      if (!points.length) {
+        throw new Error('No valid coordinate rows were found with the selected file mapping.');
+      }
+
+      return points;
+    }
+
+    function clearImportedDataset() {
+      importedDataset = null;
+      fileInput.value = '';
+      mappingPanel.hidden = true;
+      fileSourceChip.hidden = true;
+      previewBox.innerHTML = '';
+    }
+
+    function clearAllData() {
+      clearTable();
+      clearImportedDataset();
+      markerLayer.clearLayers();
+      clearLegend();
+    }
+
+    pasteTableBody.addEventListener('paste', (event) => {
+      const clipboardText = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+      if (!clipboardText) {
+        return;
+      }
+
+      const targetCell = event.target.closest('td');
+      if (!targetCell) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const startRow = [...pasteTableBody.querySelectorAll('tr')].indexOf(targetCell.parentElement);
+      const startCol = [...targetCell.parentElement.querySelectorAll('td')].indexOf(targetCell);
+      const delimiter = detectDelimiter(clipboardText);
+      const pastedRows = clipboardText.split(/\r?\n/)
+        .filter((line) => line.length > 0)
+        .map((line) => splitDelimitedLine(line, delimiter));
+
+      ensureTableRows(startRow + pastedRows.length + 4);
+      const tableRows = [...pasteTableBody.querySelectorAll('tr')];
+
+      pastedRows.forEach((values, rowOffset) => {
+        const row = tableRows[startRow + rowOffset];
+        const cells = row.querySelectorAll('td');
+        for (let colOffset = 0; colOffset < 4; colOffset += 1) {
+          const value = values[colOffset];
+          if (value === undefined) {
+            continue;
+          }
+          const target = cells[startCol + colOffset];
+          if (target) {
+            target.textContent = value;
+          }
+        }
+      });
+    });
+
+    mapTableButton.addEventListener('click', applyPastedTable);
+
+    clearTableButton.addEventListener('click', () => {
+      clearAllData();
+      setStatus('All data cleared.');
+    });
+
+    sampleButton.addEventListener('click', () => {
+      writeRowsToTable(sampleRows);
+      setStatus('Sample rows restored.');
+    });
+
+    fileInput.addEventListener('change', async (event) => {
+      const [file] = event.target.files || [];
+      if (!file) {
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        loadImportedDataset(file.name, text);
+      } catch (error) {
+        clearImportedDataset();
+        setStatus(error.message || `Could not read ${file.name}.`, true);
+      }
+    });
+
+    mapFileButton.addEventListener('click', () => {
+      try {
+        mapPoints(parseImportedDataset());
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    });
+
+    clearFileButton.addEventListener('click', () => {
+      clearImportedDataset();
+      setStatus('Imported file cleared.');
+    });
+
+    initializeResponsivePanelState();
+    writeRowsToTable(sampleRows);
+    applyPastedTable();
+  </script>
+</body>
+</html>

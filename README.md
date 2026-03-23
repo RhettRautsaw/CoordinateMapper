@@ -3,20 +3,51 @@
 
 ## Rhett M. Rautsaw
 
-This repository contains the underlying code for the **Coordinate Mapper** Shiny application hosted at 
-[RhettRautsaw.github.io/shiny/CoordinateMapper](https://RhettRautsaw.github.io/shiny/CoordinateMapper/)
+This repository contains the source code for the **Coordinate Mapper** web application hosted at
+[rhettrautsaw.github.io/CoordinateMapper](https://rhettrautsaw.github.io/CoordinateMapper).
 
-This app is designed to quickly map and visualize decimal degree data points and color them by a given category. The app takes a single 4 column tab-delimited copy-paste input. 
+Coordinate Mapper is designed to quickly map and visualize decimal degree coordinates and color points by category. The new app is built directly with HTML/CSS/JavaScript and Leaflet for a faster, lighter-weight experience than the legacy Shiny version.
+
+## User Guide
+
+### Option 1: Paste data directly into the table
+
+Paste a four-column block directly from Excel, Google Sheets, or any tabular text source into the editable table.
 
 | Column 1 | Column 2 | Column 3 | Column 4  |
 |----------|----------|----------|-----------|
 |    ID    | Category | Latitude | Longitude |
 
+Headers are optional for pasted data.
+
+### Option 2: Import a CSV or TSV file
+
+For larger datasets, import a `.csv`, `.tsv`, or `.txt` file and then choose which columns correspond to:
+
+- ID
+- Category
+- Latitude
+- Longitude
+
+The app will try to auto-detect latitude and longitude columns, but users can adjust the dropdowns before mapping.
+
+### Features
+
+- Terrain basemap by default, with additional basemap and overlay options
+- Category-colored points with popup details and a legend
+- Collapsible control panel
+- Mobile-friendly layout with a bottom-sheet control panel
+
 <br>
 
-## TO DO LIST (Additions)
-- Ability to change color of points
-- Click add points & export coordinates
+# Updates/Changelog
+- **2026-03-22**: 
+	- Shiny app was updated to support the latest version of R and package dependencies including switching to use `sf` and `terra` instead of `sp` and `raster`. 
+	- Shiny app is being deprecated in favor of a new web app built directly with HTML/CSS/JS. This results in significant speed and performance improvements. 
+		- The new web app is found in this repository [rhettrautsaw.github.io/CoordinateMapper](https://rhettrautsaw.github.io/CoordinateMapper).
+		- **PLEASE BOOKMARK THE NEW PAGE BY JULY 2026**
+
+# Shiny App (Deprecated)
 
 ## Running the Application Locally
 
@@ -41,3 +72,7 @@ runGitHub("CoordinateMapper", "RhettRautsaw", subdir = "inst/shinyapp/")
 runUrl("https://github.com/RhettRautsaw/CoordinateMapper/archive/master.tar.gz",
   subdir = "inst/shinyapp/")
 ```
+
+# TO DO LIST (Additions)
+- Ability to change color of points
+- Click add points & export coordinates
