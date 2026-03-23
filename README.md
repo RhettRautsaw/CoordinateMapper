@@ -19,6 +19,8 @@ Paste a four-column block directly from Excel, Google Sheets, or any tabular tex
 |    ID    | Category | Latitude | Longitude |
 
 Headers are optional for pasted data.
+The map updates automatically as the table changes.
+The `Category` column is used to color points on the map.
 
 ### Option 2: Import a CSV or TSV file
 
@@ -29,11 +31,18 @@ For larger datasets, import a `.csv`, `.tsv`, or `.txt` file and then choose whi
 - Latitude
 - Longitude
 
+The `Category` column is used to color points on the map.
+
 The app will try to auto-detect latitude and longitude columns, but users can adjust the dropdowns before mapping.
+Imported files are previewed in a compact panel that shows the first 5 rows rather than the full dataset.
 
 ### Option 3: Add points directly on the map
 
-Use the point creation controls to enter a new sample ID and category, enable add mode, and then click anywhere on the map to place a new point at that location.
+Enable add mode and then click anywhere on the map to place a new point. The point is added to the editable table, where the ID and category can be changed directly.
+
+### Measure distance
+
+Use the measurement tool to click two locations on the map and calculate the straight-line distance between them.
 
 ### Export data
 
@@ -48,6 +57,8 @@ Use `Export Current Points to CSV` to download the points currently displayed on
 - Terrain basemap by default, with additional basemap and overlay options
 - Category-colored points with popup details and a legend
 - Click-to-add points with CSV export
+- Automatic mapping as table or import settings change
+- Distance measurement between two clicked map locations
 - Collapsible control panel
 - Mobile-friendly layout with a bottom-sheet control panel
 

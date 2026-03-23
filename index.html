@@ -426,8 +426,8 @@
           <table aria-label="Coordinate data table">
             <thead>
               <tr>
-                <th>Sample</th>
-                <th>Category</th>
+                <th>ID</th>
+                <th>Category (colors points)</th>
                 <th>Latitude</th>
                 <th>Longitude</th>
               </tr>
@@ -471,11 +471,11 @@
       <section class="panel-section">
         <span class="section-title">Expected fields</span>
         <div class="table-hint">
-          Sample ID, category, latitude, and longitude are all that is needed.<br />
+          ID, category, latitude, and longitude are all that is needed.<br />
+          The category column is used to color points on the map.<br />
           Headers are optional for pasted data and recommended for imported files.
         </div>
         <div class="button-row">
-          <button id="map-data-button" class="primary" type="button">Map Data</button>
           <button id="clear-data-button" class="secondary" type="button">Clear Data</button>
           <button id="sample-button" class="secondary" type="button">Show Example Data</button>
         </div>
@@ -488,6 +488,15 @@
         <div class="button-row">
           <button id="add-point-mode-button" class="secondary" type="button">Enable Add Mode</button>
           <button id="export-csv-button" class="secondary" type="button">Export Current Points to CSV</button>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <span class="section-title">Measure Distance</span>
+        <p class="section-help">Turn on measure mode, then click any two locations on the map to calculate straight-line distance.</p>
+        <div class="button-row">
+          <button id="measure-mode-button" class="secondary" type="button">Enable Measure Mode</button>
+          <button id="clear-measure-button" class="secondary" type="button">Clear Measurement</button>
         </div>
       </section>
     </div>
@@ -583,15 +592,17 @@
     L.control.scale({ position: 'topleft' }).addTo(map);
 
     const markerLayer = L.layerGroup().addTo(map);
+    const measurementLayer = L.layerGroup().addTo(map);
     let legendControl = null;
     let importedDataset = null;
     let addPointMode = false;
+    let measureMode = false;
+    let measureClicks = [];
     let currentPoints = [];
 
     const sidePanel = document.getElementById('side-panel');
     const panelToggle = document.getElementById('panel-toggle');
     const pasteTableBody = document.getElementById('paste-table-body');
-    const mapDataButton = document.getElementById('map-data-button');
     const clearDataButton = document.getElementById('clear-data-button');
     const sampleButton = document.getElementById('sample-button');
     const fileInput = document.getElementById('file-input');
@@ -606,6 +617,8 @@
     const status = document.getElementById('status');
     const addPointModeButton = document.getElementById('add-point-mode-button');
     const exportCsvButton = document.getElementById('export-csv-button');
+    const measureModeButton = document.getElementById('measure-mode-button');
+    const clearMeasureButton = document.getElementById('clear-measure-button');
     let autoMapTimer = null;
 
     function setStatus(message, isError = false) {
@@ -810,7 +823,7 @@
       }
 
       const csv = [
-        ['Sample', 'Category', 'Latitude', 'Longitude'],
+        ['ID', 'Category', 'Latitude', 'Longitude'],
         ...points.map((point) => [point.sample, point.category, point.latitude, point.longitude])
       ]
         .map((row) => row.map(csvEscape).join(','))
@@ -958,7 +971,8 @@
         .map((row) => `<tr>${row.map((value) => `<td>${escapeHtml(value)}</td>`).join('')}</tr>`)
         .join('');
       previewBox.innerHTML =
-        `<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+        `<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>` +
+        `<div style="padding:8px 10px;font-size:11px;color:#56687a;">Showing the first 5 rows only.</div>`;
     }
 
     function loadImportedDataset(fileName, text) {
@@ -993,7 +1007,7 @@
       fileSourceChip.hidden = false;
       fileSourceChip.textContent = `${fileName} loaded: ${dataRows.length.toLocaleString()} row${dataRows.length === 1 ? '' : 's'}`;
       renderFilePreview(importedDataset);
-      setStatus(`Imported ${fileName}. Confirm the column mapping, then click "Map Data".`);
+      setStatus(`Imported ${fileName}. Confirm the column mapping if needed. The map will update automatically.`);
     }
 
     function parseImportedDataset() {
@@ -1040,17 +1054,94 @@
     function clearAllData() {
       clearTable();
       clearImportedDataset();
+      clearMeasurement();
+      map.closePopup();
       markerLayer.clearLayers();
       clearLegend();
       currentPoints = [];
       setAddPointMode(false);
     }
 
+    function updateMapCursor() {
+      map.getContainer().style.cursor = (addPointMode || measureMode) ? 'crosshair' : '';
+    }
+
     function setAddPointMode(enabled) {
       addPointMode = enabled;
+      if (enabled) {
+        measureMode = false;
+        measureModeButton.textContent = 'Enable Measure Mode';
+        measureModeButton.className = 'secondary';
+      }
       addPointModeButton.textContent = enabled ? 'Disable Add Mode' : 'Enable Add Mode';
       addPointModeButton.className = enabled ? 'primary' : 'secondary';
-      map.getContainer().style.cursor = enabled ? 'crosshair' : '';
+      updateMapCursor();
+    }
+
+    function formatDistance(meters) {
+      const kilometers = meters / 1000;
+      const miles = meters / 1609.344;
+      if (kilometers >= 1) {
+        return `${kilometers.toFixed(2)} km (${miles.toFixed(2)} mi)`;
+      }
+      return `${meters.toFixed(0)} m (${miles.toFixed(2)} mi)`;
+    }
+
+    function clearMeasurement() {
+      measureClicks = [];
+      measurementLayer.clearLayers();
+    }
+
+    function setMeasureMode(enabled) {
+      measureMode = enabled;
+      if (enabled) {
+        addPointMode = false;
+        addPointModeButton.textContent = 'Enable Add Mode';
+        addPointModeButton.className = 'secondary';
+      }
+      measureModeButton.textContent = enabled ? 'Disable Measure Mode' : 'Enable Measure Mode';
+      measureModeButton.className = enabled ? 'primary' : 'secondary';
+      updateMapCursor();
+    }
+
+    function addMeasurementPoint(latlng) {
+      if (measureClicks.length === 2) {
+        clearMeasurement();
+      }
+
+      measureClicks.push(latlng);
+      L.circleMarker(latlng, {
+        radius: 6,
+        color: '#0f4a39',
+        weight: 2,
+        fillColor: '#2c8b74',
+        fillOpacity: 0.95
+      }).addTo(measurementLayer);
+
+      if (measureClicks.length < 2) {
+        setStatus('Measure mode: click a second point to calculate distance.');
+        return;
+      }
+
+      const [start, end] = measureClicks;
+      const line = L.polyline([start, end], {
+        color: '#0f4a39',
+        weight: 3,
+        dashArray: '8 6'
+      }).addTo(measurementLayer);
+
+      const meters = start.distanceTo(end);
+      const midpoint = L.latLng(
+        (start.lat + end.lat) / 2,
+        (start.lng + end.lng) / 2
+      );
+      L.popup({ closeButton: false, autoClose: false, closeOnClick: false, offset: [0, -8] })
+        .setLatLng(midpoint)
+        .setContent(`<strong>Distance</strong><br />${formatDistance(meters)}`)
+        .openOn(map);
+
+      measurementLayer.addLayer(line);
+      setStatus(`Distance measured: ${formatDistance(meters)}.`);
     }
 
     function appendPointToTable(point) {
@@ -1150,8 +1241,6 @@
       scheduleAutoMap();
     });
 
-    mapDataButton.addEventListener('click', mapAllAvailableData);
-
     clearDataButton.addEventListener('click', () => {
       clearAllData();
       setStatus('All data cleared.');
@@ -1159,7 +1248,8 @@
 
     sampleButton.addEventListener('click', () => {
       writeRowsToTable(sampleRows);
-      setStatus('Sample rows restored.');
+      scheduleAutoMap();
+      setStatus('Example data restored.');
     });
 
     fileInput.addEventListener('change', async (event) => {
@@ -1194,6 +1284,22 @@
       setStatus(addPointMode ? 'Add mode enabled. Click the map to place a point.' : 'Add mode disabled.');
     });
 
+    measureModeButton.addEventListener('click', () => {
+      setMeasureMode(!measureMode);
+      if (measureMode) {
+        clearMeasurement();
+        setStatus('Measure mode enabled. Click two points on the map.');
+      } else {
+        setStatus('Measure mode disabled.');
+      }
+    });
+
+    clearMeasureButton.addEventListener('click', () => {
+      clearMeasurement();
+      map.closePopup();
+      setStatus('Measurement cleared.');
+    });
+
     exportCsvButton.addEventListener('click', () => {
       try {
         downloadCsv(currentPoints);
@@ -1204,10 +1310,13 @@
     });
 
     map.on('click', (event) => {
-      if (!addPointMode) {
+      if (addPointMode) {
+        addPointFromMap(event.latlng);
         return;
       }
-      addPointFromMap(event.latlng);
+      if (measureMode) {
+        addMeasurementPoint(event.latlng);
+      }
     });
 
     initializeResponsivePanelState();
